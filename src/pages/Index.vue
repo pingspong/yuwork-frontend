@@ -1,13 +1,24 @@
 <template>
+  <a-input-search
+      style="margin-top: 16px"
+      v-model:value="searchText"
+      placeholder="搜索任务名称"
+      enter-button
+      @search="onSearch"
+  />
+  <TaskModal :visible="modalVisible" :data="updateData" @onClose="onClose" @onOk="onOk"/>
   <a-list item-layout="vertical" size="large" :pagination="pagination" :data-source="dataList">
     <template #renderItem="{ item }">
       <a-card style="margin-top: 16px">
         <a-list-item key="item.name">
           <template #actions>
-          <span v-for="{ type, text } in actions" :key="type">
-            <component :is="type" style="margin-right: 8px"/>
-            {{ text }}
-          </span>
+            <a-button @click="doUpdate(item)">
+              <EditOutlined/>
+              更新
+            </a-button>
+            <span @click="doDelete">
+              <DeleteOutlined/> 删除
+            </span>
           </template>
           <template #extra>
             <img
@@ -34,34 +45,13 @@
             </div>
             <a-space direction="horizontal" :size="32">
               <div>工作时长：{{ item.duration }} 秒</div>
-              <div>计划时间：{{ item.createTime }}</div>
+              <div>计划时间：{{ item.planTime }}</div>
               <div>创建时间：{{ item.createTime }}</div>
             </a-space>
 
           </a-space>
         </a-list-item>
       </a-card>
-    </template>
-  </a-list>
-
-  <a-list item-layout="horizontal" :data-source="dataList">
-    <template #renderItem="{ item }">
-      <a-list-item>
-        <a-list-item-meta>
-          <template #title>
-            {{ item.name }}
-          </template>
-          <template #description>
-            <ul>
-              <li>描述：{{ item.description }}</li>
-              <li>标签：{{ item.tags }}</li>
-              <li>时常：{{ item.duration }}</li>
-              <li>计划时间：{{ item.planTime }}</li>
-              <li>创建时间：{{ item.createTime }}</li>
-            </ul>
-          </template>
-        </a-list-item-meta>
-      </a-list-item>
     </template>
   </a-list>
 </template>
@@ -73,9 +63,32 @@ import myAxios from "../plugins/myAxios";
 import {onMounted, ref} from "vue";
 import {message} from "ant-design-vue";
 import dayjs from "dayjs";
-import qs from 'qs';
+import TaskModal from "../components/TaskModal.vue";
 
+const searchText = ref('');
 const dataList = ref([]);
+const modalVisible = ref(false);
+const updateData = ref(null)
+
+const doUpdate = (data) => {
+  modalVisible.value = true;
+  updateData.value = data;
+}
+
+const doDelete = () => {
+  alert('删除')
+}
+
+const onClose = () => {
+  modalVisible.value = false;
+}
+
+const onOk = () => {
+  loadData({
+    name: searchText.value
+  });
+  modalVisible.value = false;
+}
 
 /**
  * 分页
@@ -99,36 +112,41 @@ const DEFAULT_TAG_COLOR_ARRAY = [
   'purple',
 ]
 
-
-/**
- * 操作按钮
- */
-const actions = [
-  {type: EditOutlined, text: '更新'},
-  {type: DeleteOutlined, text: '删除'},
-];
-
-
-
 const mockAvatar = 'https://gw.alipayobjects.com/zos/rmsportal/mqaQswcyDLcXyDKnZfES.png';
 
 /**
  * 首次加载页面时
  */
 onMounted(() => {
-  loadData();
+  loadData({});
 })
+
+/**
+ * 搜索
+ */
+const onSearch = async () => {
+  loadData({
+        name: searchText.value
+      }
+  )
+}
+
+const blackWord = '1 = 1';
 
 /**
  * 远程加载数据
  */
-const loadData = async (pageNum = 1, pageSize = 4) => {
+const loadData = async (params: any, pageNum = 1, pageSize = 4) => {
+  if (params.name?.includes(blackWord)) {
+    message.error('我爱你！！！');
+    return;
+  }
   const res = await myAxios.post('/work/list', {
     pageRequest: {
       current: pageNum,
       size: pageSize,
     },
-    work: {}
+    work: params
   });
   console.log('data', res)
 
