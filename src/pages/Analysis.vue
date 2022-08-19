@@ -1,7 +1,14 @@
 <template>
-  <div id="container" style="width: 100%; height: 1000px">
-    容器
+  <div>
+    <h1>各工作时长占比</h1>
+    <div id="container" style="width: 100%; height: 600px">
+    </div>
+    <a-divider />
+    <h1>工作时长分析</h1>
+    <div id="histogramChartContainer" style="width: 100%; height: 600px">
+    </div>
   </div>
+
 </template>
 
 <script setup>
@@ -11,11 +18,12 @@ import myAxios from "../plugins/myAxios";
 import {message} from "ant-design-vue";
 
 const dataList = ref([]);
+const chartDataList = ref([]);
 
 onMounted(async () => {
-  const res = await myAxios.get("/work/list");
+  const res = await myAxios.post("/work/list", {});
   if (res.code === 0) {
-    dataList.value = res.data;
+    dataList.value = res.data.records;
   } else {
     message.error('加载错误');
   }
@@ -27,11 +35,75 @@ onMounted(async () => {
   const chartData = dataList.value.map(data => {
     return {
       type: data.name,
-      value: data.duration / totalDuration,
+      absoluteValue: data.duration,
+      value: Number(Number(data.duration * 100 / totalDuration).toFixed(2)),
+      percent: Number(Number(data.duration * 100 / totalDuration).toFixed(2)),
     }
   })
+  chartDataList.value = chartData;
   renderBarChart(chartData);
+  renderHistogramChart(chartData);
 })
+
+/**
+ * 渲染柱状图
+ */
+function renderHistogramChart(chartData) {
+  const data = chartData.map(tempData => {
+    return {
+      type: tempData.type,
+      value: tempData.absoluteValue,
+      percent: tempData.value,
+    }
+  })
+
+  const chart = new Chart({
+    container: 'histogramChartContainer',
+    autoFit: true,
+    height: 500,
+    padding: [50, 20, 50, 20],
+  });
+  chart.data(data);
+  chart.scale('value', {
+    alias: '练习时长',
+  });
+
+  chart.axis('type', {
+    tickLine: {
+      alignTick: false,
+    },
+  });
+  chart.axis('value', false);
+
+  chart.tooltip({
+    showMarkers: false,
+  });
+  chart.interval().position('type*value');
+  chart.interaction('element-active');
+
+// 添加文本标注
+  data.forEach((item) => {
+    chart
+        .annotation()
+        .text({
+          position: [item.type, item.value],
+          content: item.value,
+          style: {
+            textAlign: 'center',
+          },
+          offsetY: -30,
+        })
+        .text({
+          position: [item.type, item.value],
+          content: (item.percent * 100).toFixed(0) + '%',
+          style: {
+            textAlign: 'center',
+          },
+          offsetY: -12,
+        });
+  });
+  chart.render();
+}
 
 /**
  * 渲染饼图
@@ -40,7 +112,7 @@ function renderBarChart(chartData) {
   const chart = new Chart({
     container: 'container',
     autoFit: true,
-    height: 500,
+    height: 400,
   });
   chart.data(chartData);
 
@@ -51,11 +123,13 @@ function renderBarChart(chartData) {
     showMarkers: false
   });
 
+  const colorPlattle = ["#025DF4", "#DB6BCF", "#2498D1", "#BBBDE6", "#4045B2", "#21A97A", "#FF745A", "#007E99", "#FFA8A8", "#2391FF"];
+
   const interval = chart
       .interval()
       .adjust('stack')
       .position('value')
-      // .color('type', ['#063d8a', '#1770d6', '#47abfc', '#38c060'])
+      .color('type')
       .style({opacity: 0.4})
       .state({
         active: {
@@ -68,13 +142,11 @@ function renderBarChart(chartData) {
         }
       })
       .label('type', (val) => {
-        const opacity = val === '四线及以下' ? 1 : 0.5;
         return {
           offset: -30,
           style: {
-            opacity,
             fill: 'white',
-            fontSize: 12,
+            fontSize: 20,
             shadowBlur: 2,
             shadowColor: 'rgba(0, 0, 0, .45)',
           },

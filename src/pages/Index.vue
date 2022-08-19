@@ -1,24 +1,24 @@
 <template>
   <a-input-search
       style="margin-top: 16px"
-      v-model:value="searchText"
+      v-model:value="searchParams.name"
       placeholder="搜索任务名称"
       enter-button
       @search="onSearch"
   />
   <TaskModal :visible="modalVisible" :data="updateData" @onClose="onClose" @onOk="onOk"/>
   <a-list item-layout="vertical" size="large" :pagination="pagination" :data-source="dataList">
-    <template #renderItem="{ item }">
+    <template #renderItem="{ item, index }">
       <a-card style="margin-top: 16px">
-        <a-list-item key="item.name">
+        <a-list-item :key="index">
           <template #actions>
             <a-button @click="doUpdate(item)">
               <EditOutlined/>
               更新
             </a-button>
-            <span @click="doDelete">
+            <a-button danger @click="doDelete(item.id)">
               <DeleteOutlined/> 删除
-            </span>
+            </a-button>
           </template>
           <template #extra>
             <img
@@ -48,7 +48,6 @@
               <div>计划时间：{{ item.planTime }}</div>
               <div>创建时间：{{ item.createTime }}</div>
             </a-space>
-
           </a-space>
         </a-list-item>
       </a-card>
@@ -57,7 +56,6 @@
 </template>
 
 <script setup lang="ts">
-import {EditOutlined, DeleteOutlined} from '@ant-design/icons-vue';
 import WorkType from "../models/work";
 import myAxios from "../plugins/myAxios";
 import {onMounted, ref} from "vue";
@@ -65,7 +63,14 @@ import {message} from "ant-design-vue";
 import dayjs from "dayjs";
 import TaskModal from "../components/TaskModal.vue";
 
-const searchText = ref('');
+const DEFAULT_PAGE_SIZE = 4;
+
+// 搜索条件
+const searchParams = ref<Record<string, any>>({
+  name: '',
+  pageSize: DEFAULT_PAGE_SIZE,
+  pageNum: 1,
+});
 const dataList = ref([]);
 const modalVisible = ref(false);
 const updateData = ref(null)
@@ -75,8 +80,19 @@ const doUpdate = (data) => {
   updateData.value = data;
 }
 
-const doDelete = () => {
-  alert('删除')
+/**
+ * 删除
+ */
+const doDelete = async (id: string) => {
+  const res = await myAxios.post("/work/delete", {
+    id
+  });
+  if (res?.code === 0) {
+    loadData();
+    message.success('删除成功');
+  } else {
+    message.error('删除失败');
+  }
 }
 
 const onClose = () => {
@@ -84,9 +100,8 @@ const onClose = () => {
 }
 
 const onOk = () => {
-  loadData({
-    name: searchText.value
-  });
+  searchParams.value = {...searchParams.value, current: 1}
+  loadData();
   modalVisible.value = false;
 }
 
@@ -95,9 +110,10 @@ const onOk = () => {
  */
 const pagination = ref({
   onChange: (pageNum: number) => {
-    loadData(pageNum);
+    searchParams.value = {...searchParams.value, pageNum};
+    loadData();
   },
-  pageSize: 4,
+  pageSize: DEFAULT_PAGE_SIZE,
 });
 
 /**
@@ -118,17 +134,15 @@ const mockAvatar = 'https://gw.alipayobjects.com/zos/rmsportal/mqaQswcyDLcXyDKnZ
  * 首次加载页面时
  */
 onMounted(() => {
-  loadData({});
+  loadData();
 })
 
 /**
  * 搜索
  */
 const onSearch = async () => {
-  loadData({
-        name: searchText.value
-      }
-  )
+  searchParams.value = {...searchParams.value, pageNum: 1};
+  loadData()
 }
 
 const blackWord = '1 = 1';
@@ -136,17 +150,16 @@ const blackWord = '1 = 1';
 /**
  * 远程加载数据
  */
-const loadData = async (params: any, pageNum = 1, pageSize = 4) => {
-  if (params.name?.includes(blackWord)) {
+const loadData = async () => {
+  const {name, pageNum, pageSize} = searchParams.value;
+  if (name?.includes(blackWord)) {
     message.error('我爱你！！！');
     return;
   }
-  const res = await myAxios.post('/work/list', {
-    pageRequest: {
-      current: pageNum,
-      size: pageSize,
-    },
-    work: params
+  const res: any = await myAxios.post('/work/list', {
+    current: pageNum,
+    size: pageSize,
+    name,
   });
   console.log('data', res)
 
@@ -155,7 +168,11 @@ const loadData = async (params: any, pageNum = 1, pageSize = 4) => {
     const tempDataList = res.data.records;
     tempDataList.forEach(data => {
       data.avatar = mockAvatar;
-      data.tagArray = JSON.parse(data.tags ?? '[]');
+      if (data.tags && data.tags.length > 0) {
+        data.tagArray = JSON.parse(data.tags);
+      } else {
+        data.tagArray = [];
+      }
       data.createTime = dayjs(data.createTime).format('YYYY-MM-DD HH:mm:ss');
       data.planTime = dayjs(data.planTime).format('YYYY-MM-DD HH:mm:ss');
     })

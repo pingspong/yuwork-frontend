@@ -24,12 +24,15 @@
 </template>
 
 <script setup lang="ts">
-import {ref} from "vue";
-import {useRouter} from "vue-router";
+import {computed, ref, watch} from "vue";
+import {useRoute, useRouter} from "vue-router";
 
-const selectedKeys = ref(['/'])
-
+const route = useRoute();
 const router = useRouter();
+
+const selectedKeys = computed(() => {
+  return [route.path];
+})
 
 const toPage = ({key}: { key: string }) => {
   router.push({

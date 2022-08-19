@@ -1,6 +1,6 @@
 <template>
-  <br />
-  <br />
+  <br/>
+  <br/>
   <a-form
       :model="formState"
       name="basic"
@@ -37,7 +37,7 @@
         label="计划时间"
         name="planTime"
     >
-      <a-date-picker show-time v-model:value="formState.planTime" />
+      <a-date-picker show-time v-model:value="formState.planTime"/>
     </a-form-item>
     <a-form-item :wrapper-col="{ offset: 8, span: 16 }">
       <a-button type="primary" html-type="submit">提交</a-button>
@@ -46,12 +46,14 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from "vue";
+import {reactive} from "vue";
 import WorkType from "../models/work";
 import myAxios from "../plugins/myAxios";
 import {message} from "ant-design-vue";
+import {useRouter} from "vue-router";
 
-const formState = reactive<WorkType> ({
+// @ts-ignore
+const formState = reactive<WorkType>({
   name: '学 Java',
   description: '学习 Java 集合类',
   duration: 3600,
@@ -59,6 +61,12 @@ const formState = reactive<WorkType> ({
   planTime: undefined,
 });
 
+const router = useRouter();
+
+/**
+ * 提交
+ * @param values
+ */
 const onSubmit = async (values) => {
   // 校验和处理
   if (values.tags) {
@@ -69,6 +77,9 @@ const onSubmit = async (values) => {
   const res = await myAxios.post('/work/create', values);
   if (res.code === 0) {
     message.success('插入成功');
+    router.push({
+      path: '/'
+    })
   } else {
     message.error('插入失败');
   }
